@@ -1,4 +1,4 @@
-module github.com/codemodify/systemkit-terminal-progress-spinner
+module github.com/codemodify/systemkit-terminal-progress-static
 
 go 1.13
 
