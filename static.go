@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
-	"time"
 
+	terminal "github.com/codemodify/systemkit-terminal"
 	progress "github.com/codemodify/systemkit-terminal-progress"
 )
 
@@ -19,6 +18,8 @@ type Static struct {
 	finishedChannel chan bool
 
 	lastPrintLen int
+
+	theTerminal *terminal.Terminal
 }
 
 // NewStaticWithConfig -
@@ -38,6 +39,8 @@ func NewStaticWithConfig(config progress.Config) progress.Renderer {
 		finishedChannel: make(chan bool),
 
 		lastPrintLen: 0,
+
+		theTerminal: terminal.NewTerminal(config.Writer),
 	}
 }
 
@@ -65,7 +68,7 @@ func NewStatic(args ...string) progress.Renderer {
 
 	return NewStaticWithConfig(progress.Config{
 		Prefix:          "[",
-		ProgressGlyphs:  []string{"|", "/", "-", "\\"},
+		ProgressGlyphs:  []string{string('\u25B6')}, // u00BB - double arrow, u25B6 - play
 		Suffix:          "] ",
 		ProgressMessage: progressMessage,
 		SuccessGlyph:    string('\u2713'), // check mark
@@ -78,115 +81,83 @@ func NewStatic(args ...string) progress.Renderer {
 }
 
 // Run -
-func (s *Static) Run() {
-	go s.drawLineInLoop()
+func (thisRef *Static) Run() {
+	go thisRef.drawLineInLoop()
 }
 
 // Success -
-func (s *Static) Success() {
-	s.stop(true)
+func (thisRef *Static) Success() {
+	thisRef.stop(true)
 }
 
 // Fail -
-func (s *Static) Fail() {
-	s.stop(false)
+func (thisRef *Static) Fail() {
+	thisRef.stop(false)
 }
 
-func (s *Static) stop(success bool) {
-	s.stopWithSuccess = success
-	s.stopChannel <- true
-	close(s.stopChannel)
+func (thisRef *Static) stop(success bool) {
+	thisRef.stopWithSuccess = success
+	thisRef.stopChannel <- true
+	close(thisRef.stopChannel)
 
-	<-s.finishedChannel
+	<-thisRef.finishedChannel
 }
 
-func (s *Static) drawLine(char string) (int, error) {
-	return fmt.Fprintf(s.config.Writer, "%s%s%s%s", s.config.Prefix, char, s.config.Suffix, s.config.ProgressMessage)
+func (thisRef *Static) drawLine(char string) (int, error) {
+	return fmt.Fprintf(thisRef.config.Writer, "%s%s%s%s", thisRef.config.Prefix, char, thisRef.config.Suffix, thisRef.config.ProgressMessage)
 }
 
-func (s *Static) drawOperationProgressLine() {
-	if err := s.eraseLine(); err != nil {
+func (thisRef *Static) drawOperationProgressLine() {
+	if err := thisRef.eraseLine(); err != nil {
 		return
 	}
 
-	n, err := s.drawLine(s.config.ProgressGlyphs[0])
+	n, err := thisRef.drawLine(thisRef.config.ProgressGlyphs[0])
 	if err != nil {
 		return
 	}
 
-	s.lastPrintLen = n
+	thisRef.lastPrintLen = n
 }
 
-func (s *Static) drawOperationStatusLine() {
-	status := s.config.SuccessGlyph
-	if !s.stopWithSuccess {
-		status = s.config.FailGlyph
+func (thisRef *Static) drawOperationStatusLine() {
+	status := thisRef.config.SuccessGlyph
+	if !thisRef.stopWithSuccess {
+		status = thisRef.config.FailGlyph
 	}
 
-	if err := s.eraseLine(); err != nil {
+	if err := thisRef.eraseLine(); err != nil {
 		return
 	}
 
-	if _, err := s.drawLine(status); err != nil {
+	if _, err := thisRef.drawLine(status); err != nil {
 		return
 	}
 
-	fmt.Fprintf(s.config.Writer, "\n")
+	fmt.Fprintf(thisRef.config.Writer, "\n")
 
-	s.lastPrintLen = 0
+	thisRef.lastPrintLen = 0
 }
 
-func (s *Static) drawLineInLoop() {
-	s.hideCursor()
-
-	wg := sync.WaitGroup{}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		ticker := time.NewTicker(100 * time.Millisecond)
-		for {
-			select {
-			case <-ticker.C:
-				s.drawOperationProgressLine()
-
-			case <-s.stopChannel:
-				ticker.Stop()
-				return
-			}
-		}
-	}()
-
-	// for stop aka Success/Fail
-	wg.Wait()
-
-	s.drawOperationStatusLine()
-
-	s.unhideCursor()
-
-	s.finishedChannel <- true
-}
-
-func (s *Static) eraseLine() error {
-	_, err := fmt.Fprint(s.config.Writer, "\r"+strings.Repeat(" ", s.lastPrintLen)+"\r")
-	return err
-}
-
-func (s *Static) hideCursor() error {
-	if !s.config.HideCursor {
-		return nil
+func (thisRef *Static) drawLineInLoop() {
+	if thisRef.config.HideCursor {
+		thisRef.theTerminal.HideCursor()
 	}
 
-	_, err := fmt.Fprint(s.config.Writer, "\r\033[?25l\r")
-	return err
-}
+	thisRef.drawOperationProgressLine()
 
-func (s *Static) unhideCursor() error {
-	if !s.config.HideCursor {
-		return nil
+	<-thisRef.stopChannel
+
+	thisRef.drawOperationStatusLine()
+
+	if thisRef.config.HideCursor {
+		thisRef.theTerminal.ShowCursor()
 	}
 
-	_, err := fmt.Fprint(s.config.Writer, "\r\033[?25h\r")
+	thisRef.finishedChannel <- true
+}
+
+func (thisRef *Static) eraseLine() error {
+	_, err := fmt.Fprint(thisRef.config.Writer, "\r"+strings.Repeat(" ", thisRef.lastPrintLen)+"\r")
 	return err
 }
