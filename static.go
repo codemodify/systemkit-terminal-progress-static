@@ -110,7 +110,7 @@ func (thisRef *Static) drawOperationStatusLine() {
 
 func (thisRef *Static) drawLineInLoop() {
 	if thisRef.config.HideCursor {
-		thisRef.theTerminal.HideCursor()
+		thisRef.theTerminal.CursorHide()
 	}
 
 	thisRef.drawOperationProgressLine()
@@ -120,7 +120,7 @@ func (thisRef *Static) drawLineInLoop() {
 	thisRef.drawOperationStatusLine()
 
 	if thisRef.config.HideCursor {
-		thisRef.theTerminal.ShowCursor()
+		thisRef.theTerminal.CursorShow()
 	}
 
 	thisRef.finishedChannel <- true
