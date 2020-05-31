@@ -9,8 +9,8 @@ import (
 	progress "github.com/codemodify/systemkit-terminal-progress"
 )
 
-// Static -
-type Static struct {
+// static -
+type static struct {
 	config progress.Config
 
 	stopChannel     chan bool
@@ -31,7 +31,7 @@ func NewStaticWithConfig(config progress.Config) progress.Renderer {
 	}
 
 	// 2.
-	return &Static{
+	return &static{
 		config: config,
 
 		stopChannel:     make(chan bool),
@@ -50,21 +50,21 @@ func NewStatic(args ...string) progress.Renderer {
 }
 
 // Run -
-func (thisRef *Static) Run() {
+func (thisRef *static) Run() {
 	go thisRef.drawLineInLoop()
 }
 
 // Success -
-func (thisRef *Static) Success() {
+func (thisRef *static) Success() {
 	thisRef.stop(true)
 }
 
 // Fail -
-func (thisRef *Static) Fail() {
+func (thisRef *static) Fail() {
 	thisRef.stop(false)
 }
 
-func (thisRef *Static) stop(success bool) {
+func (thisRef *static) stop(success bool) {
 	thisRef.stopWithSuccess = success
 	thisRef.stopChannel <- true
 	close(thisRef.stopChannel)
@@ -72,11 +72,11 @@ func (thisRef *Static) stop(success bool) {
 	<-thisRef.finishedChannel
 }
 
-func (thisRef *Static) drawLine(char string) (int, error) {
+func (thisRef *static) drawLine(char string) (int, error) {
 	return fmt.Fprintf(thisRef.config.Writer, "%s%s%s%s", thisRef.config.Prefix, char, thisRef.config.Suffix, thisRef.config.ProgressMessage)
 }
 
-func (thisRef *Static) drawOperationProgressLine() {
+func (thisRef *static) drawOperationProgressLine() {
 	if err := thisRef.eraseLine(); err != nil {
 		return
 	}
@@ -89,7 +89,7 @@ func (thisRef *Static) drawOperationProgressLine() {
 	thisRef.lastPrintLen = n
 }
 
-func (thisRef *Static) drawOperationStatusLine() {
+func (thisRef *static) drawOperationStatusLine() {
 	status := thisRef.config.SuccessGlyph
 	if !thisRef.stopWithSuccess {
 		status = thisRef.config.FailGlyph
@@ -108,7 +108,7 @@ func (thisRef *Static) drawOperationStatusLine() {
 	thisRef.lastPrintLen = 0
 }
 
-func (thisRef *Static) drawLineInLoop() {
+func (thisRef *static) drawLineInLoop() {
 	if thisRef.config.HideCursor {
 		thisRef.theTerminal.CursorHide()
 	}
@@ -126,7 +126,7 @@ func (thisRef *Static) drawLineInLoop() {
 	thisRef.finishedChannel <- true
 }
 
-func (thisRef *Static) eraseLine() error {
+func (thisRef *static) eraseLine() error {
 	_, err := fmt.Fprint(thisRef.config.Writer, "\r"+strings.Repeat(" ", thisRef.lastPrintLen)+"\r")
 	return err
 }
